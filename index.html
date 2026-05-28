@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek Excel 图表助手</title>
+    <!-- 引入 Office.js，Excel外接程序的核心库 -->
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <!-- 引入 Tailwind CSS 打造专业、整洁的咨询级UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .spinner { border: 3px solid rgba(0,0,0,0.1); border-left-color: #3b82f6; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 p-4 h-screen flex flex-col">
+
+    <!-- 标题区域 -->
+    <div class="mb-6 border-b pb-4">
+        <h1 class="text-xl font-bold text-blue-700 flex items-center">
+            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+            AI 图表分析专家
+        </h1>
+        <p class="text-xs text-gray-500 mt-1">基于 DeepSeek 模型，自然语言驱动数据可视化</p>
+    </div>
+
+    <!-- API 设置区域 -->
+    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4">
+        <h2 class="text-sm font-semibold mb-2 text-gray-700">1. 模型配置 (仅需配置一次)</h2>
+        <input type="password" id="apiKey" placeholder="输入您的 DeepSeek API Key" 
+               class="w-full text-sm p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 mb-2">
+        <button onclick="saveApiKey()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 px-3 rounded border border-gray-300 transition">
+            保存 Key
+        </button>
+        <span id="keyStatus" class="text-xs text-green-600 ml-2 hidden">已保存!</span>
+    </div>
+
+    <!-- 交互区域 -->
+    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex-1 flex flex-col">
+        <h2 class="text-sm font-semibold mb-2 text-gray-700">2. 选中数据并描述需求</h2>
+        <p class="text-xs text-gray-500 mb-3">请先在左侧Excel中框选需要制图的数据区域（包含表头），然后输入您的作图要求。</p>
+        
+        <textarea id="userPrompt" rows="4" placeholder="例如：帮我制作一个营收与利润率的复合图，利润率使用折线图并放置在次坐标轴。或者：制作一个瀑布图展示利润变动。" 
+                  class="w-full text-sm p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 mb-4 flex-1 resize-none"></textarea>
+        
+        <button onclick="processChartGeneration()" id="generateBtn" 
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition flex justify-center items-center">
+            <span id="btnText">生成高级图表</span>
+            <div id="btnSpinner" class="spinner ml-2 hidden"></div>
+        </button>
+    </div>
+
+    <!-- 日志输出区域 -->
+    <div class="mt-4 p-3 bg-gray-900 text-green-400 font-mono text-xs rounded h-24 overflow-y-auto" id="logArea">
+        系统就绪。等待操作...
+    </div>
+
+    <script>
+        // 页面加载完毕后初始化
+        Office.onReady((info) => {
+            if (info.host === Office.HostType.Excel) {
+                log("Excel 宿主环境连接成功。");
+                loadApiKey();
+            }
+        });
+
+        // 日志系统
+        function log(msg) {
+            const logArea = document.getElementById('logArea');
+            logArea.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        // API Key 管理
+        function saveApiKey() {
+            const key = document.getElementById('apiKey').value.trim();
+            if (key) {
+                localStorage.setItem('deepseek_api_key', key);
+                const status = document.getElementById('keyStatus');
+                status.classList.remove('hidden');
+                setTimeout(() => status.classList.add('hidden'), 2000);
+                log("API Key 已保存至本地缓存。");
+            }
+        }
+
+        function loadApiKey() {
+            const key = localStorage.getItem('deepseek_api_key');
+            if (key) {
+                document.getElementById('apiKey').value = key;
+                log("已加载保存的 API Key。");
+            }
+        }
+
+        // 主流程控制器
+        async function processChartGeneration() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const prompt = document.getElementById('userPrompt').value.trim();
+            
+            if (!apiKey) { alert("请先输入并保存 DeepSeek API Key！"); return; }
+            if (!prompt) { alert("请输入您的图表需求！"); return; }
+
+            const btn = document.getElementById('generateBtn');
+            const btnText = document.getElementById('btnText');
+            const btnSpinner = document.getElementById('btnSpinner');
+
+            try {
+                // UI 状态更新
+                btn.disabled = true;
+                btn.classList.add('opacity-70');
+                btnText.innerText = "读取数据...";
+                btnSpinner.classList.remove('hidden');
+
+                await Excel.run(async (context) => {
+                    // 1. 读取选中的数据
+                    log("正在读取选中数据...");
+                    let range = context.workbook.getSelectedRange();
+                    range.load(["address", "values", "worksheet/name"]);
+                    await context.sync();
+
+                    if (!range.values || range.values.length < 2) {
+                        throw new Error("请确保您选中了至少两行数据（包含表头）。");
+                    }
+
+                    const headers = range.values[0];
+                    const sampleData = range.values.slice(1, Math.min(4, range.values.length)); // 最多取3行样本给AI
+
+                    // 2. 调用 DeepSeek 模型
+                    btnText.innerText = "AI 正在分析...";
+                    log("正在连接 DeepSeek 引擎分析图表结构...");
+                    const aiConfig = await callDeepSeekAPI(apiKey, prompt, range.worksheet.name, range.address, headers, sampleData);
+                    
+                    if (!aiConfig || !aiConfig.chartType) {
+                        throw new Error("AI未能返回有效的图表配置，请修改提示词重试。");
+                    }
+                    log(`AI决策图表类型: ${aiConfig.chartType}`);
+
+                    // 3. 在 Excel 中新建 Sheet 并生成图表
+                    btnText.innerText = "绘制图表...";
+                    log("正在新建工作表并绘制图表...");
+                    
+                    let newSheet = context.workbook.worksheets.add();
+                    newSheet.name = "图表分析_" + Math.floor(Math.random() * 1000); // 防止重名
+
+                    // 创建基础图表，引用原表数据
+                    let chart = newSheet.charts.add(aiConfig.chartType, range, "Auto");
+                    chart.title.text = aiConfig.chartTitle || "数据可视化分析";
+                    chart.title.visible = true;
+                    chart.legend.position = "Bottom";
+                    chart.legend.visible = true;
+
+                    // 设置图表尺寸和位置
+                    chart.top = 20;
+                    chart.left = 20;
+                    chart.width = 600;
+                    chart.height = 350;
+
+                    // 4. 处理高级复合图表逻辑 (AI 判断需要覆盖某些Series的图表类型或设置次坐标轴)
+                    if (aiConfig.seriesOverrides && aiConfig.seriesOverrides.length > 0) {
+                        log("检测到复合图表配置，正在处理次坐标轴/多图表类型映射...");
+                        let seriesCollection = chart.series;
+                        seriesCollection.load("items");
+                        await context.sync(); // 需要先同步才能获取系列
+
+                        for (let override of aiConfig.seriesOverrides) {
+                            // 通过名称匹配系列
+                            let series = seriesCollection.items.find(s => s.name === override.seriesName);
+                            if (series) {
+                                if (override.newChartType) {
+                                    series.chartType = override.newChartType;
+                                    log(`已将系列 [${override.seriesName}] 修改为 ${override.newChartType}`);
+                                }
+                                if (override.secondaryAxis) {
+                                    series.axisGroup = Excel.ChartAxisGroup.secondary;
+                                    log(`已将系列 [${override.seriesName}] 移动至次坐标轴`);
+                                }
+                            }
+                        }
+                    }
+
+                    // 激活新工作表
+                    newSheet.activate();
+                    await context.sync();
+                    log("图表生成完毕！请查看新建的Sheet。");
+                });
+
+            } catch (error) {
+                console.error(error);
+                log(`<span class="text-red-500">错误: ${error.message}</span>`);
+            } finally {
+                // 恢复 UI 状态
+                btn.disabled = false;
+                btn.classList.remove('opacity-70');
+                btnText.innerText = "生成高级图表";
+                btnSpinner.classList.add('hidden');
+            }
+        }
+
+        // 调用 DeepSeek API
+        async function callDeepSeekAPI(apiKey, userPrompt, sheetName, address, headers, sampleData) {
+            const endpoint = "https://api.deepseek.com/chat/completions";
+            
+            const systemPrompt = `你是一个专为资深咨询顾问服务的顶级Excel数据可视化架构师。
+用户在Excel中选中了区域 ${address}，位于工作表 "${sheetName}"。
+表头列名：${JSON.stringify(headers)}
+数据样本：${JSON.stringify(sampleData)}
+
+用户的需求是："${userPrompt}"
+
+请你根据需求和数据结构，规划最佳的图表表现形式。
+Office.js 支持的基础 chartType 包含: 'ColumnClustered', 'ColumnStacked', 'Line', 'LineMarkers', 'Pie', 'BarClustered', 'Area', 'Waterfall'.
+【重要逻辑】：如果你认为需要制作“复合图”(例如柱状图+折线图双轴)，请将主 chartType 设为 'ColumnClustered'，并在 seriesOverrides 数组中明确指定需要被修改的特定系列。
+
+你必须只返回一个合法的 JSON 对象，不要包含任何 markdown 标记、\`\`\`json 标签或其他多余文字。
+JSON 严格格式要求：
+{
+  "chartType": "Excel.ChartType 的有效字符串",
+  "chartTitle": "生成专业、简明扼要的商业图表标题",
+  "seriesOverrides": [
+     {
+        "seriesName": "需要改变类型的确切列名(必须完全匹配提供的表头名称)",
+        "newChartType": "该系列的新图表类型(如 'Line' 或 'LineMarkers')",
+        "secondaryAxis": true或false (是否启用次坐标轴)
+     }
+  ]
+}`;
+
+            const requestBody = {
+                model: "deepseek-chat",
+                messages: [
+                    { role: "system", content: systemPrompt }
+                ],
+                temperature: 0.1, // 低温度保证输出JSON格式稳定
+                response_format: { type: "json_object" } // 强制返回JSON格式
+            };
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(`API调用失败: ${errData.error?.message || response.statusText}`);
+            }
+
+            const data = await response.json();
+            let aiText = data.choices[0].message.content.trim();
+            
+            // 容错处理：清除可能存在的 markdown 标签
+            if (aiText.startsWith('```json')) { aiText = aiText.replace(/```json/g, '').replace(/```/g, '').trim(); }
+            if (aiText.startsWith('```')) { aiText = aiText.replace(/```/g, '').trim(); }
+
+            return JSON.parse(aiText);
+        }
+    </script>
+</body>
+</html>
