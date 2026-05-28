@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp 
+    xmlns="[http://schemas.microsoft.com/office/appforoffice/1.1](http://schemas.microsoft.com/office/appforoffice/1.1)" 
+    xmlns:xsi="[http://www.w3.org/2001/XMLSchema-instance](http://www.w3.org/2001/XMLSchema-instance)" 
+    xmlns:bt="[http://schemas.microsoft.com/office/officeappbasictypes/1.0](http://schemas.microsoft.com/office/officeappbasictypes/1.0)" 
+    xmlns:ov="[http://schemas.microsoft.com/office/taskpaneappversionoverrides](http://schemas.microsoft.com/office/taskpaneappversionoverrides)"
+    xsi:type="TaskPaneApp">
+
+    <Id>f4b8c9d2-e5a1-4321-b987-c1d2e3f4a5b6</Id>
+    <Version>1.0.0.0</Version>
+    <ProviderName>Consulting Solutions</ProviderName>
+    <DefaultLocale>zh-CN</DefaultLocale>
+    <DisplayName DefaultValue="DeepSeek 智能图表" />
+    <Description DefaultValue="利用 DeepSeek 自然语言指令在 Excel 中生成高级专业图表（瀑布图、复合图等）" />
+    
+    <!-- 请求读取和写入文档的权限 -->
+    <Permissions>ReadWriteDocument</Permissions>
+
+    <Hosts>
+        <Host Name="Workbook" />
+    </Hosts>
+
+    <DefaultSettings>
+        <!-- 【非常重要】：请将这里的URL替换为您托管 index.html 的 HTTPS 地址 -->
+        <SourceLocation DefaultValue="[https://your-domain.com/index.html](https://your-domain.com/index.html)" />
+    </DefaultSettings>
+
+    <VersionOverrides xmlns="[http://schemas.microsoft.com/office/taskpaneappversionoverrides/1.0](http://schemas.microsoft.com/office/taskpaneappversionoverrides/1.0)" xsi:type="VersionOverridesV1_0">
+        <Hosts>
+            <Host xsi:type="Workbook">
+                <DesktopFormFactor>
+                    <ExtensionPoint xsi:type="PrimaryCommandSurface">
+                        <OfficeTab id="TabHome">
+                            <Group id="CustomGroup1">
+                                <Label resid="groupLabel" />
+                                <Control xsi:type="Button" id="TaskpaneButton">
+                                    <Label resid="btnLabel" />
+                                    <Supertip>
+                                        <Title resid="btnTitle" />
+                                        <Description resid="btnDesc" />
+                                    </Supertip>
+                                    <Action xsi:type="ShowTaskpane">
+                                        <TaskpaneId>ButtonId1</TaskpaneId>
+                                        <!-- 【非常重要】：请将这里的URL替换为您托管 index.html 的 HTTPS 地址 -->
+                                        <SourceLocation resid="taskpaneUrl" />
+                                    </Action>
+                                </Control>
+                            </Group>
+                        </OfficeTab>
+                    </ExtensionPoint>
+                </DesktopFormFactor>
+            </Host>
+        </Hosts>
+        <Resources>
+            <bt:Urls>
+                <!-- 【非常重要】：请将这里的URL替换为您托管 index.html 的 HTTPS 地址 -->
+                <bt:Url id="taskpaneUrl" DefaultValue="[https://your-domain.com/index.html](https://your-domain.com/index.html)" />
+            </bt:Urls>
+            <bt:ShortStrings>
+                <bt:String id="groupLabel" DefaultValue="AI 工具" />
+                <bt:String id="btnLabel" DefaultValue="AI 图表助手" />
+                <bt:String id="btnTitle" DefaultValue="DeepSeek AI 图表助手" />
+            </bt:ShortStrings>
+            <bt:LongStrings>
+                <bt:String id="btnDesc" DefaultValue="选中数据，使用自然语言生成专业图表。" />
+            </bt:LongStrings>
+        </Resources>
+    </VersionOverrides>
+</OfficeApp>
